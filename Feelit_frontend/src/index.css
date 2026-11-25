@@ -1,0 +1,262 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-night font-sans text-snow antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-display font-medium tracking-tight;
+  }
+  ::selection {
+    @apply bg-coral/40;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-saffron;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.6);
+  }
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-10;
+  }
+  /* Solid surfaces: glass is kept for things that float over photos and maps only. */
+  .glass {
+    @apply rounded-[1.25rem] border border-white/[0.08] bg-[#0e1426];
+  }
+  .glass-strong {
+    @apply rounded-[1.25rem] border border-white/15 bg-deep/85 shadow-lift backdrop-blur-xl;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-saffron text-night shadow-[0_10px_30px_-12px_rgba(255,159,69,0.7)] hover:bg-[#ffb366];
+  }
+  .btn-ghost {
+    @apply border border-white/15 bg-white/5 text-snow hover:border-white/30 hover:bg-white/10;
+  }
+  .btn-icon {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-snow transition hover:bg-white/10 disabled:opacity-40;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-snow/90;
+  }
+  .chip-on {
+    @apply border-saffron/60 bg-saffron/15 text-saffron;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-snow placeholder:text-mist/60 transition focus:border-saffron/50 focus:outline-none focus:ring-4 focus:ring-saffron/15;
+  }
+  .label {
+    @apply mb-1.5 block font-mono text-[11px] uppercase tracking-[0.14em] text-mist;
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-saffron;
+  }
+  .accent {
+    @apply font-display italic text-saffron;
+  }
+  /* Editorial section rule: a thin line with a small label, used between page sections. */
+  .rule {
+    @apply flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.22em] text-mist after:h-px after:flex-1 after:bg-white/10;
+  }
+  .skeleton {
+    @apply rounded-3xl bg-[linear-gradient(90deg,rgba(255,255,255,.04)_25%,rgba(255,255,255,.09)_37%,rgba(255,255,255,.04)_63%)] bg-[length:200%_100%] animate-shimmer;
+  }
+  .scroll-row {
+    @apply flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
+  }
+}
+
+/* Ambient background: night sky over faint topographic contour lines, with one warm horizon glow. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, #060912 0%, #080c18 55%, #0b0f1d 100%);
+}
+.aurora::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.05' stroke-width='1'%3E%3Cpath d='M-20 120c80-40 140 30 220 0s150-70 230-30 120 40 190 10'/%3E%3Cpath d='M-20 160c90-40 150 30 230 0s140-60 220-25 130 45 190 15'/%3E%3Cpath d='M-20 200c100-35 160 35 240 5s130-55 210-20 140 45 190 20'/%3E%3Cpath d='M-20 330c70 30 130-40 210-10s170 80 250 40 110-50 180-20'/%3E%3Cpath d='M-20 370c80 30 140-35 220-5s160 70 240 35 120-45 180-15'/%3E%3Cpath d='M-20 410c90 25 150-30 230 0s150 60 230 30 130-40 180-10'/%3E%3Cellipse cx='420' cy='500' rx='90' ry='45'/%3E%3Cellipse cx='420' cy='500' rx='55' ry='26'/%3E%3Cellipse cx='420' cy='500' rx='22' ry='10'/%3E%3Cellipse cx='130' cy='520' rx='70' ry='34'/%3E%3Cellipse cx='130' cy='520' rx='36' ry='16'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 600px 600px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 30%, transparent 80%);
+}
+.aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* The glows: a warm sunrise on the horizon and a faint cool moon light. */
+.aurora span { position: absolute; border-radius: 9999px; filter: blur(120px); }
+.aurora span:nth-child(1) { width: 70vw; height: 30vw; left: 15vw; bottom: -18vw; background: rgba(255, 159, 69, 0.16); }
+.aurora span:nth-child(2) { width: 30vw; height: 30vw; right: -8vw; top: -10vw; background: rgba(124, 198, 255, 0.08); }
+
+/* Map pins */
+.pin {
+  @apply flex h-7 w-7 items-center justify-center rounded-full border-2 border-night bg-gradient-to-br from-saffron to-coral font-mono text-xs font-bold text-night shadow-glow;
+}
+.leaflet-container {
+  @apply z-0 bg-deep font-sans;
+}
+.map-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+.leaflet-tooltip {
+  @apply rounded-lg border-white/10 bg-deep text-snow shadow-lift;
+}
+.leaflet-control-attribution {
+  @apply !bg-night/70 !text-mist;
+}
+.leaflet-control-attribution a {
+  @apply !text-sky;
+}
+
+/* ---------- Trip layouts ----------
+   Each layout sits in a .trip-theme. The default is the night theme; .paper (minimal luxury) and
+   .kraft (scrapbook) are light. Shared trip parts only use these variables, so one component
+   renders correctly in every layout. --tint / --tint-2 / --tint-ink are set per destination. */
+.trip-theme {
+  --ink: 245 241 232;
+  --muted: 155 163 183;
+  --line: rgba(255, 255, 255, 0.1);
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-solid: #0f1629;
+  --radius: 1.5rem;
+  --tint: 255 159 69;
+  --tint-2: 232 55 142;
+  --tint-ink: 255 159 69;
+  color: rgb(var(--ink));
+  overflow-x: clip; /* tilted photos and wide maps never cause sideways scrolling; unlike hidden, keeps sticky working */
+}
+.trip-theme.paper,
+.trip-theme.kraft {
+  --ink: 36 30 24;
+  --muted: 108 97 84;
+  --line: rgba(36, 30, 24, 0.14);
+  --panel: #fffcf6;
+  --panel-solid: #fffcf6;
+  --radius: 4px;
+  color-scheme: light;
+}
+.trip-theme.paper { background: #f6f1e9; }
+.trip-theme.kraft {
+  --panel: #fffaf0;
+  background-color: #e9dcc4;
+  background-image:
+    radial-gradient(rgba(120, 90, 50, 0.08) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E");
+  background-size: 22px 22px, 200px 200px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.trip-theme .eyebrow { color: rgb(var(--tint-ink)); }
+
+/* Shared controls on light paper */
+.paper .btn-ghost, .kraft .btn-ghost, .paper .chip, .kraft .chip {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  color: rgb(var(--ink));
+}
+.paper .btn-ghost:hover, .kraft .btn-ghost:hover { background: #fff; border-color: rgba(36, 30, 24, 0.3); }
+.paper .input, .kraft .input { border-color: var(--line); background: #fff; color: rgb(var(--ink)); }
+.paper .skeleton, .kraft .skeleton { background-image: linear-gradient(90deg, rgba(0,0,0,.04) 25%, rgba(0,0,0,.08) 37%, rgba(0,0,0,.04) 63%); }
+
+/* Scrapbook pieces */
+.tape {
+  position: absolute;
+  height: 1.4rem;
+  width: 5.5rem;
+  background: rgba(var(--tint), 0.45);
+  mix-blend-mode: multiply;
+  clip-path: polygon(3% 0, 97% 4%, 100% 100%, 0 94%);
+}
+.polaroid {
+  background: #fffdf8;
+  padding: 0.6rem 0.6rem 2.6rem;
+  box-shadow: 0 18px 30px -18px rgba(60, 40, 10, 0.55), 0 2px 4px rgba(60, 40, 10, 0.12);
+  transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+}
+.polaroid:hover { transform: rotate(0deg) scale(1.03) !important; z-index: 5; }
+.ticket {
+  background: #fffdf8;
+  border-radius: 10px;
+  /* punched notches on both sides of the tear line */
+  -webkit-mask: radial-gradient(circle 10px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                radial-gradient(circle 10px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+          mask: radial-gradient(circle 10px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                radial-gradient(circle 10px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  box-shadow: 0 14px 24px -16px rgba(60, 40, 10, 0.5);
+}
+.notepaper {
+  background-color: #fffdf6;
+  background-image: linear-gradient(rgba(var(--tint-ink), 0.12) 1px, transparent 1px);
+  background-size: 100% 1.6rem;
+  box-shadow: 0 14px 24px -18px rgba(60, 40, 10, 0.5);
+}
+.receipt {
+  background: #fffefb;
+  box-shadow: 0 14px 24px -18px rgba(60, 40, 10, 0.5);
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%;
+          mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%;
+}
+
+/* Maps on light paper, and the highlighted pin */
+.map-tiles-paper { filter: grayscale(0.55) sepia(0.2) contrast(0.95) brightness(1.02); }
+.trip-theme .pin { background-image: linear-gradient(135deg, rgb(var(--tint)), rgb(var(--tint-2))); }
+.pin-active { transform: scale(1.35); box-shadow: 0 0 0 6px rgba(var(--tint), 0.35); }
+.paper .leaflet-container, .kraft .leaflet-container { background: #efe8dc; }
+
+/* ---------- Phones ---------- */
+/* Inputs under 16px make iOS zoom the whole page when focused. */
+@media (max-width: 1023px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+}
+/* The bottom dock steps aside while the keyboard is open (see useTypingMode in Shell). */
+.typing .dock, .typing .dock-hide { display: none; }
+.typing .dock-pad { padding-bottom: 1rem !important; }
+/* Room for the dock (phones only) plus the iPhone home indicator. */
+@media (max-width: 767px) {
+  .dock-pad { padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
+}
+button, a, [role="button"] { touch-action: manipulation; }
+.tap { position: relative; }
+.tap::after { content: ""; position: absolute; inset: -10px -6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Printing a trip gives a clean paper itinerary. */
+@media print {
+  body { background: white !important; color: black !important; }
+  .aurora, .no-print { display: none !important; }
+  .glass, .glass-strong { border-color: #ddd !important; background: white !important; backdrop-filter: none !important; box-shadow: none !important; }
+  .text-snow, .text-mist { color: black !important; }
+  .trip-theme { --ink: 0 0 0; --muted: 70 70 70; --line: #ccc; --panel: #fff; background: white !important; }
+  .polaroid, .ticket, .notepaper, .receipt { box-shadow: none !important; }
+}

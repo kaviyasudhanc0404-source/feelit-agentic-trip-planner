@@ -1,0 +1,16 @@
+{
+  "name": "Feel It – AI travel agent for India",
+  "short_name": "Feel It",
+  "description": "Plan trips across India with an AI agent that uses live places, weather and prices.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070A13",
+  "theme_color": "#070A13",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,29 @@
+[project]
+name = "feelit-backend"
+version = "1.0.0"
+description = "Feel It - AI travel planner API for India"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115",
+    "pymongo>=4.10",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+    "bcrypt>=4.1",
+    "pyjwt[crypto]>=2.9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
+
+[tool.ruff.lint]
+select = ["F", "E9", "B"]
+ignore = ["B008"]  # FastAPI's Depends() in default arguments is intended

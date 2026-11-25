@@ -1,0 +1,21 @@
+# Secrets: never commit these (see backend/.env.example and frontend/.env.example)
+.env
+.env.*
+!.env.example
+
+# Dependencies, builds and caches
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.fastapicloud/
+.vercel/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

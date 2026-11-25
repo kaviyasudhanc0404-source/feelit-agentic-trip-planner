@@ -1,0 +1,30 @@
+# Wakes the backend and sends the trip reminders that are due.
+# Reminders go out from 8 PM India time the evening before a trip (the backend allows until noon on
+# day one), so it only needs to run in the evening, plus once in the morning for trips planned late.
+# FastAPI Cloud's free plan sleeps when idle; these runs wake it.
+# Repository → Settings → Secrets and variables → Actions → add:
+#   BACKEND_URL  e.g. https://feel-it.fastapicloud.dev   (no /api at the end)
+#   CRON_SECRET  the same value as CRON_SECRET in the backend's environment
+name: Trip reminders
+
+on:
+  schedule:
+    # GitHub uses UTC; India is UTC+5:30.
+    - cron: "30 14-17 * * *"  # 8, 9, 10 and 11 PM India time
+    - cron: "30 2 * * *"      # 8 AM India time: catch-up for trips planned after 11 PM
+  workflow_dispatch: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due reminders
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BACKEND_URL" ] || [ -z "$CRON_SECRET" ]; then echo "Set BACKEND_URL and CRON_SECRET in the repository secrets."; exit 1; fi
+          # The first call may wake a sleeping server, so allow time and retry once.
+          curl --fail --silent --show-error --max-time 120 --retry 2 --retry-delay 15 \
+            -X POST "$BACKEND_URL/api/internal/reminders" -H "X-Cron-Secret: $CRON_SECRET"
