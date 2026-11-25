@@ -1,4 +1,4 @@
-/** Password rules, the same as the server's (see NewPassword in backend/app/schemas.py). */
+/** Password rules, the same as the server's (see NewPassword in app/schemas.py on the backend). */
 export const PASSWORD_HINT = "At least 8 characters, with a letter and a number.";
 
 /** What is wrong with a new password, or null when it is fine. */

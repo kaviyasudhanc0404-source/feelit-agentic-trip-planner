@@ -1,4 +1,4 @@
-"""Copy backend/.env to FastAPI Cloud as the app's environment variables.
+"""Copy this folder's .env to FastAPI Cloud as the app's environment variables.
 
     python scripts/push_env.py https://your-app.vercel.app
 

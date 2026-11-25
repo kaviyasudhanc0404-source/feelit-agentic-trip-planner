@@ -1,157 +1,261 @@
-# Feel It — your AI travel agent for India
+<div align="center">
 
-Feel It plans trips the way a good human travel planner does. You say where you'd like to go; the agent asks what it needs to know (budget, dates, who's coming, food, pace, interests), checks live data, and hands you a trip brief to confirm. It then builds a day-by-day plan with real places, a map, the weather and a budget in rupees, and you can change any part of it by hand or by asking the agent.
+# ✈️ Feel It — Agentic AI Travel Planner for India
 
+**Tell it where you want to go. It asks the right questions, checks the live web, weather and maps, and builds a real day-by-day trip you can edit by hand or by talking to it.**
+
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](#tech-stack)
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](#tech-stack)
+[![React](https://img.shields.io/badge/React_18-TypeScript-61DAFB?logo=react&logoColor=black)](#tech-stack)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)](#tech-stack)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini_%2B_Groq-8E75B2?logo=googlegemini&logoColor=white)](#how-the-ai-works)
+[![Tests](https://img.shields.io/badge/tests-33_passing-2EA44F)](#quality-and-testing)
+
+**[Live demo](https://your-app.vercel.app)** · [How the AI works](#how-the-ai-works) · [Features](#features) · [Run locally](#run-locally) · [Deploy](#deployment)
+
+</div>
+
+---
+
+## Why Feel It is different
+
+Most "AI trip planners" send one prompt to a model and print whatever comes back, including invented places and impossible timings. Feel It is built as an **agent with tools, guardrails and deterministic post-processing**:
+
+- 🧭 **Plans like a human agent.** A tool-using agent asks its questions in one round as tappable cards (budget, dates, food, pace, who's travelling), checks the forecast, then hands over an **editable trip brief** before building anything.
+- 🌐 **Grounded in live data, not model memory.** Places come from live web search and real map data. Every stop is **geocode-verified** before it reaches the map, and weather, festivals and trending spots are fetched live.
+- ⏱️ **Realistic plans.** Code, not the LLM, orders stops geographically, re-times the day from real distances, never moves a train, and guarantees the journey there and back.
+- 🛡️ **Production-grade reliability.** Four LLMs across two providers with automatic fallback, schema-validated JSON, retries, rate limits, a MongoDB response cache and streaming progress over Server-Sent Events.
+- 🎨 **Adaptive, story-driven UI.** Each trip picks one of **six layouts** from its own data (a cinematic magazine for nature trips, a scrapbook for friends, minimal luxury for luxury stays), coloured to match the destination.
+- 📬 **Closes the loop.** One reminder email the evening before each trip, with the day-1 plan and the live forecast, delivered exactly once.
+
+---
+
+## How the AI works
+
+```mermaid
+flowchart LR
+    U([Traveller]) -->|chat| UI[React PWA]
+    UI <-->|Server-Sent Events| API[FastAPI]
+    API --> AG{{Planning agent<br/>tool-use loop}}
+    AG -->|search| T1[Tavily web search]
+    AG -->|weather| T2[Open-Meteo forecast + AQI]
+    AG -->|places| T3[Destination guide<br/>web + Geoapify POIs]
+    AG -->|typed brief| PL[Itinerary builder]
+    PL --> PP[Deterministic post-processing<br/>geocode · route · retime · journeys]
+    PP --> DB[(MongoDB)]
+    AG & PL --> R[[LLM router<br/>Gemini ⇄ Groq fallback]]
+    T1 & T2 & T3 -.cached.-> DB
 ```
-backend/    FastAPI (Python) API and the AI agent — deploys to FastAPI Cloud
-frontend/   React + Vite + Tailwind web app — deploys to Vercel
-```
+
+### 1. The planning agent: a tool-using loop
+
+`Feelit_backend/app/services/agent.py`
+
+- **Tool protocol.** The model answers every turn with one JSON object: either a tool call (`search`, `weather`, `places`) or a final answer. The loop runs the tool, feeds back a truncated result, and repeats, with **at most three tool calls per turn** before it must answer.
+- **Live progress.** Each tool step streams to the UI as it runs ("Searching the web…", "Checking live weather in Munnar…"), and the sources used are shown as links.
+- **Human-style questioning.** For a trip request it asks only for what's missing, in one round of tappable question cards. Answers the traveller's profile already covers (home city, style, food) are skipped.
+- **Typed output.** It finishes with a **trip brief**: destination, dates, days, travellers, budget, food, pace and interests. The brief is validated against a Pydantic schema and shown as an editable boarding pass. The agent never writes the itinerary itself; a dedicated builder does.
+- **Memory.** The raw structured answers are sent back as history, so the agent remembers what it already asked.
+- **Guardrails.** India only, never invent places or prices, resolve relative dates ("next weekend") against today, and flag every number as an estimate.
+
+### 2. The itinerary builder: retrieval, generation, then verification
+
+`Feelit_backend/app/services/planner.py`, `route.py`, `geo.py`
+
+| Stage | What happens |
+|---|---|
+| **Retrieve** (in parallel) | A destination guide built from live web sources, map points of interest within 30 km, the 16-day forecast for the travel dates, and a web search for festivals and events during the trip. |
+| **Generate** | A constrained prompt with the brief, weather, events, guide and map list. The rules: use only listed places, fill each day to the chosen pace (4–9 places plus meals), respect opening hours and meal times, prefer indoor stops on rainy days, stay within budget. |
+| **Validate** | Output is parsed into Pydantic models with lenient coercion (prices like `"₹1,500"`, times like `"6:30 PM"`). If the model returns fewer days than asked, it gets **one targeted retry**. |
+| **Verify places** | Each stop is geocoded and accepted only if the map service finds that exact place within 90 km of the destination. Unverified stops keep their Maps link but get no false pin. |
+| **Route** | Sightseeing between fixed anchors (meals, stays, journeys) is reordered nearest-first, so days don't zig-zag across town. |
+| **Retime** | Every stop starts after the previous one ends **plus real travel time** from the distance. Trains and buses never move, and a hotel check-in blocks one hour, not the whole night. |
+| **Journeys** | Outbound and return journeys are guaranteed. If the model forgot them, they're added using the other journey's mode, duration and fare, or estimated from the road distance; long trips become an overnight arrival. |
+| **Enrich** | Photos of the actual places from Wikipedia and Wikimedia Commons, distances between stops, and a cover photo verified to show the destination (an Unsplash caption that names it, or its own Wikipedia article). |
+
+### 3. The trip assistant: edits in natural language
+
+Inside a saved trip, the same agent loop handles requests like *"make day 2 cheaper"*, *"rain-proof this day"* or *"add more cafés"*.
+- **Changed days only.** The model returns just the days it changed; unchanged stops keep their map pins and photos, and the changed days are re-timed.
+- **Instant updates.** The change is saved and the page updates straight away.
+
+### 4. Discovery: grounded guides and trending
+
+- **Destination guides** (trending spots, food, shopping, stays by budget tier, getting there, tips) are generated only from live web sources. **Every name must appear in the sources**, and malformed rows are dropped.
+- **Trending in India** is extracted from live travel news and checked against the geocoder. Separately, real trip-planning activity on Feel It shows where travellers are heading.
+
+### Reliability: running on free tiers in production
+
+| Concern | Approach |
+|---|---|
+| **Model outages and rate limits** | A tiered router: `big` (agent, itineraries) tries Gemini Flash-Lite → Groq gpt-oss-120b → Gemini Flash → Groq gpt-oss-20b; `fast` tries Groq → Gemini. JSON mode everywhere. |
+| **Provider quirks** | Gemini "high demand" (503) gets one quick retry. When Groq's gpt-oss rejects a tool call it tried to make natively (`tool_use_failed`), the call is recovered from the error and turned into the agent's JSON format. |
+| **Cost and latency** | A MongoDB response cache with TTLs: guides 7 days, web searches 1 day, weather 1 hour, geocodes and photo links 30 days. Repeat destinations are near-instant and stay inside the free quotas. |
+| **Abuse** | AI endpoints are rate limited per user per hour, with stricter per-IP limits for guests and for sign-in attempts. |
+| **Hallucinations** | Source-grounded prompts, schema validation, geocode verification and deterministic re-timing: what reaches the traveller has been checked by code, not just generated. |
+
+---
 
 ## Features
 
-| Area | What it does |
+| | |
 |---|---|
-| **Planning chat** | A conversational agent. It asks its questions as tappable cards (or you type), uses live tools, shows which sources it used, and ends with an editable **trip brief** ("boarding pass"). Answers any other travel question too. |
-| **Agent tools** | Live web search, a 16-day weather forecast with air quality, and destination look-ups. Each step is shown as it runs. |
-| **Trip builder** | Builds the plan from the confirmed brief using trending places, the weather for your dates, festivals and events, and real map positions. Days are full (4–9 places depending on pace, plus meals), stops are ordered to avoid zig-zagging, every stop starts after the previous one ends plus travel time, and trips from another city start with the outbound journey and end with the return home. |
-| **Trip layouts** | Every trip page picks one of six designs from the trip itself: **Cinematic** (nature trips: full-bleed photos, each day told as a chapter), **Map explorer** (city and adventure trips: a big map that follows you as you scroll), **Bento board** (budget trips: numbers first), **Scrapbook** (friends' trips: polaroids, tickets, notes and a receipt budget), **Minimal luxury** (luxury trips: ivory paper, light serif type) and **Night timeline** (the classic view). Colours follow the destination (coast, hills, desert, snow, heritage). "Style" switches layouts; the choice is remembered per trip on that device. Every layout shows the same live data: day plan, travel time between stops, map, weather, budget, journeys, food, stay, events, warnings, packing and tips. |
-| **Trip editor** | Edit the name, dates, travellers, style, budget limit and every budget line. Add, edit, reorder, move between days or delete any stop; add or remove days. New or renamed places get map pins and photos when you save. |
-| **Trip assistant** | Inside a trip: "make day 2 cheaper", "rain-proof this day", "re-plan this day", or any question. Changes are saved and shown immediately. |
-| **My trips** | Upcoming and past trips with countdowns, plus edit and delete on every card. |
-| **Explore** | Search any place in India or use your location. Live guides cover trending spots, food, shopping, stays by budget tier, how to get there, and tips. |
-| **Trending** | Trending destinations from the web (refreshed daily) and where Feel It travellers are heading this month. |
-| **Trip extras** | Weather outlook with rain warnings, budget vs. your limit, festivals during the trip, packing checklist, booking links (IRCTC, redBus, flights, hotels), calendar export (.ics), print / save as PDF, public share link, WhatsApp share. |
-| **Trip reminders** | One email per trip, the evening before it starts (from 8 PM India time; catches up until noon on day 1 if a run was missed): day 1 plan with times, the forecast with what to pack for it, packing list, tips and a button to the full plan. Sent with Brevo. Each trip is claimed in the database before sending, so it can never get two. Travellers can switch reminders off in Profile. |
-| **Mobile** | Built for phones first: a bottom dock that steps aside while you type, iPhone safe areas, no zoom-on-focus, full-screen trip assistant, one-finger page scrolling over maps, 40px tap targets. Installable to the home screen ("Add to Home screen") with its own app icon. Tablets and laptops get the top navigation. |
-| **Accounts** | Email/password (typed twice on sign-up) or Google sign-in. Change your password in Profile after confirming the current one; Google accounts can set a password to sign in with email too. Your profile (home city, style, food preference) becomes the agent's defaults. Guests can chat; saving a trip needs an account, and a guest's brief builds automatically after sign-in. |
+| 💬 **Planning chat** | The agent asks, checks live data and shows its sources, then hands over an editable trip brief. It also answers any travel question. Voice input supported. |
+| 🗺️ **Trip builder** | A full day-by-day plan with real places, a map, travel time between stops, weather, festivals, a budget in ₹ and packing tips. |
+| 🎨 **Six adaptive layouts** | Cinematic, Map explorer (a live map that follows your scroll), Bento board, Scrapbook, Minimal luxury and Night timeline, chosen automatically from the trip and switchable in one tap. |
+| ✏️ **Editor and assistant** | Edit every stop, day and budget line by hand, or ask the AI. New places get pins and photos on save. |
+| 🧭 **Explore** | Search any place in India or use your location. Live guides, a "near me" search and mood-based ideas. |
+| 📈 **Trending** | Live trending destinations and where Feel It travellers are heading. |
+| 📬 **Trip reminders** | One branded email the evening before a trip, with the day-1 plan, the forecast and what to pack (Brevo). |
+| 🧳 **Trip extras** | Booking links (IRCTC, redBus, flights, hotels), calendar export (.ics), print to PDF, public share links and WhatsApp sharing. |
+| 🔐 **Accounts** | Email and password or Google sign-in, profile defaults the agent uses, password change and a mobile number. Guests can chat, and a guest's brief builds automatically after sign-in. |
+| 📱 **Mobile-first PWA** | Installable app, a bottom dock that hides while you type, safe areas, swipeable sections, one-finger map scrolling. |
 
-## Services (all free tiers)
+---
 
-| Service | Used for | Key |
-|---|---|---|
-| Google Gemini (Flash-Lite, Flash) | The agent, itineraries and guides | `GEMINI_API_KEY` |
-| Groq (`gpt-oss`) | Fast parsing, and fallback when Gemini is busy | `GROQ_API_KEY` |
-| Geoapify (OpenStreetMap) | Place search, coordinates, nearby places | `GEOAPIFY_API_KEY` |
-| Tavily | Live web search | `TAVILY_API_KEY` |
-| Unsplash | Destination cover photos | `UNSPLASH_ACCESS_KEY` |
-| Wikipedia / Wikimedia Commons | Photos of individual places | none |
-| Open-Meteo | Weather and air quality (non-commercial use) | none |
-| OpenStreetMap tiles | The trip map | none |
-| Brevo | Trip reminder emails | `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` |
-| Firebase Authentication | "Continue with Google" | `FIREBASE_PROJECT_ID`, `VITE_FIREBASE_*` |
-| MongoDB Atlas (M0) | Users, trips, and the response cache | `MONGODB_URI` |
+## Tech stack
 
-If one AI provider fails or is overloaded, the request moves to the next one (Gemini Flash-Lite → Groq 120B → Gemini Flash → Groq 20B). Outside data is cached in MongoDB: guides for 7 days, web searches for 1 day, weather for 1 hour, photo links for 30 days. Only links are stored, never images. The cache is what keeps the app fast and inside the free limits.
+| Layer | Technologies |
+|---|---|
+| **Frontend** | React 18, TypeScript (strict), Vite, Tailwind CSS, TanStack Query, React Router, Leaflet (OpenStreetMap), Firebase Auth (Google), PWA |
+| **Backend** | Python 3.12+, FastAPI (async), Pydantic v2, PyMongo Async, HTTPX, JWT, bcrypt, Server-Sent Events |
+| **AI and data** | Google Gemini (Flash-Lite, Flash), Groq (gpt-oss-120b / 20b), Tavily web search, Geoapify, Open-Meteo, Wikipedia / Wikimedia, Unsplash |
+| **Infrastructure** | MongoDB Atlas, Vercel (frontend), FastAPI Cloud (backend), Brevo (email), GitHub Actions (scheduled reminders) |
+
+All external services run on free tiers.
+
+---
+
+## Architecture
+
+```
+Feelit_backend/
+  app/
+    main.py              App setup: CORS, gzip, error handling, background reminder task
+    config.py            Typed settings, validated at start-up (refuses unsafe production config)
+    security.py          Password hashing, JWT sessions, Google token verification, rate limits
+    schemas.py           Pydantic request models and lenient models for AI output
+    routers/             auth · agent · trips · discover · internal (scheduled jobs)
+    services/
+      agent.py           Tool-using planning agent and trip assistant
+      planner.py         Itinerary builder: retrieval, generation, journeys
+      llm.py             Multi-provider LLM router with fallback
+      route.py           Route ordering and realistic re-timing
+      discover.py        Grounded destination guides, trending, nearby
+      geo.py · weather.py · search.py · photos.py   Live data clients (cached)
+      editor.py          Manual edits that keep pins and photos
+      reminders.py · reminder_email.py · email.py   Exactly-once reminder emails via Brevo
+  tests/                 33 unit tests (pytest)
+
+Feelit_frontend/
+  src/
+    pages/               Home, Plan, Explore, Guide, Trips, Trip, Profile, Auth
+    components/trip/     Six trip layouts built from one shared toolkit (kit.tsx)
+    components/          Chat thread, composer, trip editor and assistant, map, cards
+    context/             Auth, planning conversation, trip builder
+    lib/                 API client (with SSE), trip styling rules, formatting, safe storage
+```
+
+---
+
+## Quality and testing
+
+- **Tests:** 33 backend unit tests for route ordering and re-timing, journey completion, AI output coercion, manual edits, password rules and sessions, reminder timing and email content, production config checks, error responses and rate-limit IP handling.
+- **Security:**
+  - bcrypt password hashing, with byte-length checks.
+  - JWT sessions that a password change revokes on every other device.
+  - Per-IP brute-force limits and validation errors that never echo the input.
+  - Production start-up refuses weak secrets or non-https CORS origins.
+  - Security headers on the frontend.
+- **Resilience:**
+  - Unexpected server errors return JSON that passes through CORS.
+  - A React error boundary, with one automatic reload when a deploy changes the code chunks.
+  - Read requests retry once while the free backend wakes up.
+- **Exactly-once email:** each trip is claimed atomically in MongoDB before its reminder is sent, so overlapping runs or multiple instances can't send it twice.
+- **Performance:** route-level and per-layout code splitting, lazy Firebase loading, a gzip-compressed API and a MongoDB cache in front of every external API.
+
+```bash
+cd Feelit_backend && pytest && ruff check app tests     # backend
+cd Feelit_frontend && npm run lint && npm run build      # frontend: lint, type-check, production build
+```
+
+---
 
 ## API
 
-| Method | Path | Purpose |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/api/agent` | One turn of the planning chat (streams steps, then the message) |
-| POST | `/api/trips/plan` | Build a trip from a brief (streams steps, then the trip id) |
-| GET / PATCH / DELETE | `/api/trips/{id}` | Read, edit, delete a trip |
-| POST | `/api/trips/{id}/chat` | Trip assistant (streams steps, then the updated trip) |
-| POST | `/api/trips/{id}/share` | Make a trip public or private |
-| GET | `/api/trips`, `/api/trips/shared/{share_id}` | My trips; a shared trip |
-| GET | `/api/discover/trending`, `/guide`, `/nearby`, `/weather`, `/autocomplete` | Live discovery |
-| POST | `/api/auth/register`, `/login`, `/google`; GET/PATCH `/api/auth/me` | Accounts and profile |
-| POST | `/api/auth/password/check`, `/api/auth/password` | Confirm the current password; change it (or set a first one on a Google account) |
+| `POST` | `/api/agent` | One turn of the planning chat (SSE: tool steps, then the answer) |
+| `POST` | `/api/trips/plan` | Build a trip from a brief (SSE: progress, then the trip id) |
+| `GET` `PATCH` `DELETE` | `/api/trips/{id}` | Read, edit or delete a trip |
+| `POST` | `/api/trips/{id}/chat` | Trip assistant (SSE: steps, then the updated trip) |
+| `POST` | `/api/trips/{id}/share` | Make a trip public or private |
+| `GET` | `/api/trips` · `/api/trips/shared/{share_id}` | My trips · a shared trip |
+| `GET` | `/api/discover/trending` · `guide` · `nearby` · `weather` · `autocomplete` | Live discovery |
+| `POST` | `/api/auth/register` · `login` · `google` · `password/check` · `password` | Accounts and passwords |
+| `GET` `PATCH` | `/api/auth/me` | Profile and preferences |
+| `POST` | `/api/internal/reminders` | Scheduled reminder run (requires the `X-Cron-Secret` header) |
 
-AI endpoints are rate limited per hour: `AI_RATE_LIMIT_PER_HOUR` (default 30) for signed-in users and 12 per IP address for guests. Sign-in, sign-up and password checks allow 20 attempts per hour per IP address.
-
-Passwords need 8+ characters with a letter and a number (at most 72 bytes, bcrypt's limit). Changing a password signs out every other session.
+---
 
 ## Run locally
 
-Backend (Python 3.12+):
+**Prerequisites:** Python 3.12+, Node 18+, and the free API keys listed in `.env.example`.
 
 ```bash
-cd backend
+# Backend: http://localhost:8000 (API docs at /docs)
+cd Feelit_backend
 python -m venv .venv
-.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate                 # macOS/Linux: source .venv/bin/activate
 pip install "fastapi[standard]" pymongo pydantic-settings httpx bcrypt "pyjwt[crypto]" pytest ruff
-copy .env.example .env            # then fill in the keys
-fastapi dev                       # http://localhost:8000  (API docs at /docs)
-pytest                            # unit tests
-ruff check app tests              # lint
+copy .env.example .env                 # then fill in the keys
+fastapi dev
 ```
 
-Frontend (Node 18+):
-
 ```bash
-cd frontend
+# Frontend: http://localhost:8080
+cd Feelit_frontend
 npm install
-copy .env.example .env            # then fill in the values
-npm run dev                       # http://localhost:8080
-npm run build                     # type-check and production build
+copy .env.example .env                 # set VITE_API_URL and the Firebase values
+npm run dev
 ```
 
-## Deploy
+---
 
-You need: the code in a Git repository (GitHub, GitLab or Bitbucket) for Vercel, a FastAPI Cloud account, and the keys in `backend/.env`. Never commit `.env` files; the root `.gitignore` already excludes them.
+## Deployment
 
-### 1. MongoDB Atlas
+| Part | Platform | Steps |
+|---|---|---|
+| **Database** | MongoDB Atlas | Network Access → allow `0.0.0.0/0` (FastAPI Cloud has no fixed IP). |
+| **Backend** | FastAPI Cloud | In `Feelit_backend`: `fastapi login`, `fastapi deploy`, then `python scripts/push_env.py https://<your-app>.vercel.app` (uploads `.env` as secrets, sets production mode and CORS), then `fastapi deploy` again. Check `/health`. |
+| **Frontend** | Vercel | Import the repo, set **Root Directory** to `Feelit_frontend`, and add `VITE_API_URL=https://<backend>/api` plus the four `VITE_FIREBASE_*` values. `vercel.json` adds the SPA routing, security headers and caching. |
+| **Google sign-in** | Firebase | Authentication → Settings → Authorized domains → add the Vercel domain. |
+| **Reminders** | Brevo + GitHub Actions | Verify the sender in Brevo. In the repo, add the Actions secrets `BACKEND_URL` and `CRON_SECRET`. The included workflow runs at 8, 9, 10 and 11 PM and 8 AM India time. |
 
-Network Access → Add IP address → `0.0.0.0/0` (FastAPI Cloud has no fixed IP). The database user in `MONGODB_URI` needs read/write access to the `feelit` database.
+<details>
+<summary><b>Environment variables</b></summary>
 
-### 2. Backend → FastAPI Cloud
+| Backend (`Feelit_backend/.env`) | Purpose |
+|---|---|
+| `MONGODB_URI`, `MONGODB_DB` | Database |
+| `JWT_SECRET` | Session signing (32+ random characters in production) |
+| `GEMINI_API_KEY`, `GROQ_API_KEY` | LLM providers |
+| `TAVILY_API_KEY`, `GEOAPIFY_API_KEY`, `UNSPLASH_ACCESS_KEY` | Web search, maps, photos |
+| `FIREBASE_PROJECT_ID` | Verifies Google sign-in tokens |
+| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `CRON_SECRET` | Reminder emails and the scheduled job |
+| `ENVIRONMENT`, `CORS_ORIGINS`, `CORS_ORIGIN_REGEX`, `AI_RATE_LIMIT_PER_HOUR` | Production mode, allowed frontends, limits |
 
-```bash
-cd backend
-fastapi login
-fastapi deploy                                         # first deploy creates the app and prints its URL
-python scripts/push_env.py https://<your-app>.vercel.app
-fastapi deploy                                         # deploy again with the variables
-```
+| Frontend (`Feelit_frontend/.env`) | Purpose |
+|---|---|
+| `VITE_API_URL` | Backend address + `/api` (must be `https://` on Vercel) |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | Google sign-in (public identifiers) |
 
-`scripts/push_env.py` copies every value from `backend/.env` to FastAPI Cloud through stdin (keys never appear in your shell history). It marks keys, passwords and the database URI as secrets, and sets `ENVIRONMENT=production` and `CORS_ORIGINS` to your frontend address. You can also set variables by hand: `fastapi cloud env set --secret --no-redeploy NAME`, with the value piped in, or through the FastAPI Cloud dashboard.
+</details>
 
-Optional: `CORS_ORIGIN_REGEX=https://<your-app>-.*\.vercel\.app` lets Vercel preview deployments call the API too.
+---
 
-In production the app refuses to start if `JWT_SECRET` is shorter than 32 characters or `CORS_ORIGINS` is not an `https://` address. The error is shown in `fastapi cloud logs`. API docs (`/docs`) are switched off in production.
+## Notes
 
-Check it: `https://<your-backend>/health` returns `{"status":"ok"}`.
-
-### 3. Frontend → Vercel
-
-1. Import the repository in Vercel and set **Root Directory** to `frontend` (framework: Vite, detected automatically).
-2. Environment variables (Production and Preview):
-
-   | Name | Value |
-   |---|---|
-   | `VITE_API_URL` | `https://<your-backend>/api` (required; the build stops without an `https://` value) |
-   | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | from `frontend/.env` |
-
-3. Deploy. `vercel.json` adds the SPA rewrite, security headers and long caching for hashed assets.
-4. If the Vercel address differs from the one you gave `push_env.py`, update `CORS_ORIGINS` (`fastapi cloud env set CORS_ORIGINS https://...`) — it redeploys the backend.
-
-### 4. Trip reminders (Brevo + a free scheduler)
-
-1. In Brevo → Senders, Domains & Dedicated IPs, make sure `BREVO_SENDER_EMAIL` is a verified sender. For the best inbox placement, authenticate your own domain there (SPF/DKIM) and send from it; mail sent "from" a Gmail address may land in Spam or Promotions.
-2. While the backend is awake it checks for due reminders every 30 minutes by itself. Because the free FastAPI Cloud plan sleeps when idle, also enable the included GitHub Actions workflow (`.github/workflows/trip-reminders.yml`): in the repository → Settings → Secrets and variables → Actions, add `BACKEND_URL` (your backend address, without `/api`) and `CRON_SECRET` (same value as the backend's). It calls `POST /api/internal/reminders` at 8, 9, 10 and 11 PM India time (most reminders arrive around 8 PM; trips planned later that evening are caught by the next run) and at 8 AM to catch trips planned after 11 PM. That is 5 runs a day, about 150 GitHub Actions minutes a month. Any other scheduler (e.g. cron-job.org) can call the same URL with the `X-Cron-Secret` header.
-3. Without `BREVO_API_KEY`, reminders are simply off; everything else works.
-
-### 5. Firebase (Google sign-in)
-
-Firebase console → Authentication → Settings → **Authorized domains** → add your Vercel domain (and any custom domain). Google sign-in is refused on unlisted domains.
-
-### Launch checklist
-
-- [ ] `https://<backend>/health` is ok and `https://<backend>/docs` is 404.
-- [ ] The site loads, Trending shows places, and Explore → a place shows its guide.
-- [ ] Sign up with email, sign out, sign in again; Continue with Google works.
-- [ ] Plan a trip with the agent and build it; it appears in My Trips; edit and delete work.
-- [ ] Profile → Change password works; your other devices are signed out.
-- [ ] Plan a trip starting tomorrow with your own email: the reminder arrives after 8 PM India time (or run the "Trip reminders" workflow by hand).
-- [ ] On a phone: add to home screen, the dock hides while typing, maps scroll with one finger.
-
-## Good to know
-
-- **Free-tier limits.** Tavily's free plan (1,000 searches a month) is the tightest. A new destination costs about 3 searches, then it is cached for a week; building a trip adds one search for festivals and events, and the agent may search when you ask about prices or timings.
-- **Cold starts.** FastAPI Cloud's free plan sleeps when idle, so the first request after a pause is slower.
-- **Prices are estimates.** No free API offers live Indian train, flight or hotel fares. The app shows AI estimates from web sources and links to IRCTC, redBus, Google Flights and hotel search for real prices.
-- **"Influencer" picks** come from web articles and blogs about trending places, not from Instagram itself.
-- **Map pins.** A stop gets a pin only when the map service finds that exact place nearby. Small cafés are often missing; their "Open in Maps" link always works.
-- **Secrets.** `backend/.env` and `frontend/.env` are git-ignored and excluded from deploys. Never commit them. If a key was ever shared or committed, rotate it at the provider.
-- **After each frontend deploy**, open tabs pick up the new version by themselves (a missing page file triggers one automatic reload).
-- **Errors.** Unexpected server errors return a JSON message the app can show, and are logged with their stack trace (`fastapi cloud logs`).
+- **Prices are AI estimates** from live web sources. No free API offers live Indian train, flight or hotel fares, so the app links to IRCTC, redBus, Google Flights and hotel search for real prices.
+- **Free-tier limits:** Tavily allows 1,000 searches a month. Caching keeps a new destination to about 3 searches, then serves it from the cache for a week.
+- **Cold starts:** the free FastAPI Cloud plan sleeps when idle, so the first request after a pause is slower.
