@@ -11,7 +11,7 @@
 [![Gemini](https://img.shields.io/badge/LLM-Gemini_%2B_Groq-8E75B2?logo=googlegemini&logoColor=white)](#how-the-ai-works)
 [![Tests](https://img.shields.io/badge/tests-33_passing-2EA44F)](#quality-and-testing)
 
-**[Live demo](https://your-app.vercel.app)** · [How the AI works](#how-the-ai-works) · [Features](#features) · [Run locally](#run-locally) · [Deploy](#deployment)
+**[Live demo](https://feelit-travel-planner.vercel.app)** · [How the AI works](#how-the-ai-works) · [Features](#features) · [Run locally](#run-locally) · [Deploy](#deployment)
 
 </div>
 
