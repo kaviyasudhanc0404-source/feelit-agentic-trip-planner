@@ -15,6 +15,21 @@
 
 </div>
 
+<p align="center">
+  <img src="docs/screenshots/home.jpg" alt="Feel It home page: ask the agent anywhere you want to go, with live trending destinations" width="100%">
+</p>
+
+| The agent asks before it plans | Each trip told like a travel magazine |
+|---|---|
+| <img src="docs/screenshots/agent.jpg" alt="The planning agent checks live data and asks its questions as tappable cards"> | <img src="docs/screenshots/trip-cinematic.jpg" alt="A Munnar trip in the Cinematic layout"> |
+| **Map explorer**: the live map follows the day's route | **Scrapbook**: the layout chosen for trips with friends |
+| <img src="docs/screenshots/trip-map.jpg" alt="The Map explorer layout, with the day's stops synced to the map"> | <img src="docs/screenshots/trip-scrapbook.jpg" alt="A Gokarna friends' trip in the Scrapbook layout"> |
+
+<p align="center">
+  <img src="docs/screenshots/mobile.jpg" alt="Mobile views: the home slideshow, a destination guide and a trip scrapbook" width="90%">
+  <br><sub>Mobile-first and installable as an app: home, a live destination guide and a trip on the phone</sub>
+</p>
+
 ---
 
 ## Why Feel It is different
